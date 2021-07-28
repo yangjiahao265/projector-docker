@@ -16,9 +16,12 @@
 
 FROM debian AS ideDownloader
 
+# ENV http_proxy http://192.168.3.125:7890
+# ENV https_proxy http://192.168.3.125:7890
+
 # prepare tools:
-RUN apt-get update
-RUN apt-get install wget -y
+RUN apt update
+RUN apt install wget -y
 # download IDE to the /ide dir:
 WORKDIR /download
 ARG downloadUrl
@@ -40,8 +43,8 @@ RUN cd projector-server/build/distributions && find . -maxdepth 1 -type f -name 
 FROM debian AS projectorStaticFiles
 
 # prepare tools:
-RUN apt-get update
-RUN apt-get install unzip -y
+RUN apt update
+RUN apt install unzip -y
 # create the Projector dir:
 ENV PROJECTOR_DIR /projector
 RUN mkdir -p $PROJECTOR_DIR
@@ -61,36 +64,57 @@ RUN chmod 644 $PROJECTOR_DIR/ide/projector-server/lib/*
 
 FROM debian:10
 
+
+# ENV http_proxy http://192.168.3.125:7890
+# ENV https_proxy http://192.168.3.125:7890
+
+
 RUN true \
-# Any command which returns non-zero exit code will cause this shell script to exit immediately:
-   && set -e \
-# Activate debugging to show execution details: all commands will be printed before execution
-   && set -x \
-# install packages:
-    && apt-get update \
-# packages for awt:
-    && apt-get install libxext6 libxrender1 libxtst6 libxi6 libfreetype6 -y \
-# packages for user convenience:
-    && apt-get install git bash-completion -y \
-# packages for IDEA (to disable warnings):
-    && apt-get install procps -y \
-# clean apt to reduce image size:
+    # Any command which returns non-zero exit code will cause this shell script to exit immediately:
+    && set -e \
+    # Activate debugging to show execution details: all commands will be printed before execution
+    && set -x \
+    # install packages:
+    && apt update \
+    && apt install apt-transport-https ca-certificates -y
+
+
+RUN true \
+    # Any command which returns non-zero exit code will cause this shell script to exit immediately:
+    && set -e \
+    # Activate debugging to show execution details: all commands will be printed before execution
+    && set -x \
+    # install packages:
+    && cp /etc/apt/sources.list /etc/apt/sources.list.bak \
+    && echo deb  https://mirrors.tuna.tsinghua.edu.cn/debian/ buster main contrib non-free > /etc/apt/sources.list \
+    && echo deb  https://mirrors.tuna.tsinghua.edu.cn/debian/ buster-updates main contrib non-free >> /etc/apt/sources.list \
+    && echo deb https://mirrors.tuna.tsinghua.edu.cn/debian/ buster-backports main contrib non-free >> /etc/apt/sources.list \
+    && echo deb https://mirrors.tuna.tsinghua.edu.cn/debian-security buster/updates main contrib non-free >> /etc/apt/sources.list \
+    && apt update \
+    # packages for awt:
+    && apt install libxext6 libxrender1 libxtst6 libxi6 libfreetype6 -y \
+    # packages for user convenience:
+    && apt install git bash-completion -y \
+    && apt install wget curl unzip zip -y \
+    # packages for IDEA (to disable warnings):
+    && apt install procps -y \
+    # clean apt to reduce image size:
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /var/cache/apt
 
 ARG downloadUrl
 
 RUN true \
-# Any command which returns non-zero exit code will cause this shell script to exit immediately:
+    # Any command which returns non-zero exit code will cause this shell script to exit immediately:
     && set -e \
-# Activate debugging to show execution details: all commands will be printed before execution
+    # Activate debugging to show execution details: all commands will be printed before execution
     && set -x \
-# install specific packages for IDEs:
-    && apt-get update \
-    && if [ "${downloadUrl#*CLion}" != "$downloadUrl" ]; then apt-get install build-essential clang -y; else echo "Not CLion"; fi \
-    && if [ "${downloadUrl#*pycharm}" != "$downloadUrl" ]; then apt-get install python2 python3 python3-distutils python3-pip python3-setuptools -y; else echo "Not pycharm"; fi \
-    && if [ "${downloadUrl#*rider}" != "$downloadUrl" ]; then apt install apt-transport-https dirmngr gnupg ca-certificates -y && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && echo "deb https://download.mono-project.com/repo/debian stable-buster main" | tee /etc/apt/sources.list.d/mono-official-stable.list && apt update && apt install mono-devel -y && apt install wget -y && wget https://packages.microsoft.com/config/debian/10/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb && apt-get update && apt-get install -y apt-transport-https && apt-get update && apt-get install -y dotnet-sdk-3.1 aspnetcore-runtime-3.1; else echo "Not rider"; fi \
-# clean apt to reduce image size:
+    # install specific packages for IDEs:
+    && apt update \
+    && if [ "${downloadUrl#*CLion}" != "$downloadUrl" ]; then apt install build-essential clang -y; else echo "Not CLion"; fi \
+    && if [ "${downloadUrl#*pycharm}" != "$downloadUrl" ]; then apt install python2 python3 python3-distutils python3-pip python3-setuptools -y; else echo "Not pycharm"; fi \
+    && if [ "${downloadUrl#*rider}" != "$downloadUrl" ]; then apt install apt-transport-https dirmngr gnupg ca-certificates -y && apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF && echo "deb https://download.mono-project.com/repo/debian stable-buster main" | tee /etc/apt/sources.list.d/mono-official-stable.list && apt update && apt install mono-devel -y && apt install wget -y && wget https://packages.microsoft.com/config/debian/10/packages-microsoft-prod.deb -O packages-microsoft-prod.deb && dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb && apt update && apt install -y apt-transport-https && apt update && apt install -y dotnet-sdk-3.1 aspnetcore-runtime-3.1; else echo "Not rider"; fi \
+    # clean apt to reduce image size:
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /var/cache/apt
 
@@ -101,13 +125,13 @@ COPY --from=projectorStaticFiles $PROJECTOR_DIR $PROJECTOR_DIR
 ENV PROJECTOR_USER_NAME projector-user
 
 RUN true \
-# Any command which returns non-zero exit code will cause this shell script to exit immediately:
+    # Any command which returns non-zero exit code will cause this shell script to exit immediately:
     && set -e \
-# Activate debugging to show execution details: all commands will be printed before execution
+    # Activate debugging to show execution details: all commands will be printed before execution
     && set -x \
-# move run scipt:
+    # move run scipt:
     && mv $PROJECTOR_DIR/run.sh run.sh \
-# change user to non-root (http://pjdietz.com/2016/08/28/nginx-in-docker-without-root.html):
+    # change user to non-root (http://pjdietz.com/2016/08/28/nginx-in-docker-without-root.html):
     && mv $PROJECTOR_DIR/$PROJECTOR_USER_NAME /home \
     && useradd -m -d /home/$PROJECTOR_USER_NAME -s /bin/bash $PROJECTOR_USER_NAME \
     && chown -R $PROJECTOR_USER_NAME.$PROJECTOR_USER_NAME /home/$PROJECTOR_USER_NAME \
@@ -116,6 +140,23 @@ RUN true \
 
 USER $PROJECTOR_USER_NAME
 ENV HOME /home/$PROJECTOR_USER_NAME
+
+# customize image
+
+ENV http_proxy http://192.168.3.125:7890
+ENV https_proxy http://192.168.3.125:7890
+
+SHELL ["/bin/bash", "-c"]
+
+# install sdkman and java
+RUN true \
+    # Any command which returns non-zero exit code will cause this shell script to exit immediately:
+    && set -e \
+    # Activate debugging to show execution details: all commands will be printed before execution
+    && set -x \
+    && curl -s "https://get.sdkman.io" | bash \
+    && source "$HOME/.sdkman/bin/sdkman-init.sh" \
+    && sdk install java 11.0.12-open 
 
 EXPOSE 8887
 
